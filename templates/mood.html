@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="{{ get_user_language() }}">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ translate('mood_page_title') }}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <link rel="icon" type="image/png" href="{{ url_for('static', filename='images/cycling-icon.png') }}">
+  <script src="{{ url_for('static', filename='js/i18n.js') }}"></script>
+</head>
+
+<body>
+
+  <div id="app">
+    <div class="logo">
+      <img src="/static/images/FIT logo2.png" alt="Fit Logo" class="logo-img"><span>Route AI</span>
+    </div>
+    <div class="feeling-card" id="feeling-card">
+      <h3 data-i18n="How_are_you_feeling_today">How are you feeling today?</h3>
+
+      <div class="slider-group">
+        <div class="slider-label">
+          <span id="mood-emoji">😐 <span data-i18n="Mood">Mood</span></span>
+          <span id="mood-status" data-i18n="Neutral">Neutral</span>
+        </div>
+        <input type="range" min="0" max="100" value="50" class="slider" id="mood-slider">
+      </div>
+
+      <div class="slider-group">
+        <div class="slider-label">
+          <span id="energy-emoji">⚡ <span data-i18n="Energy">Energy</span></span>
+          <span id="energy-status" data-i18n="Medium">Medium</span>
+        </div>
+        <input type="range" min="0" max="100" value="50" class="slider" id="energy-slider">
+      </div>
+
+      <div class="slider-group">
+        <div class="slider-label">
+          <span id="hydration-emoji">💧 <span data-i18n="Hydration">Hydration</span></span>
+          <span id="hydration-status" data-i18n="Okay">Okay</span>
+        </div>
+        <input type="range" min="0" max="100" value="50" class="slider" id="hydration-slider">
+      </div>
+
+      <div class="slider-group">
+        <div class="slider-label">
+          <span id="fatigue-emoji">☀️ <span data-i18n="Fatigue">Fatigue</span></span>
+          <span id="fatigue-status" data-i18n="Normal">Normal</span>
+        </div>
+        <input type="range" min="0" max="100" value="50" class="slider" id="fatigue-slider">
+      </div>
+
+      <form action="{{ url_for('segment') }}" method="POST">
+        <div class="input-group">
+          <label for="start-input" class="input-label" data-i18n="start_point">Start Point:</label>
+          <input type="text" id="start-input" name="start" placeholder="e.g., Taipei Main Station" class="segment-input"
+            required>
+        </div>
+
+        <div class="input-group">
+          <label for="end-input" class="input-label" data-i18n="end_point">End Point:</label>
+          <input type="text" id="end-input" name="end" placeholder="e.g., Yangmingshan Top" class="segment-input"
+            required>
+        </div>
+
+        <button type="submit" class="submit-btn" data-i18n="submit_today">Submit Today</button>
+      </form>
+
+    </div>  
+  </div>
+
+  <div id="result-message" class="result-message hidden" data-i18n="great_job_today">Great job today! 🎉</div>
+  <div style="text-align:center; margin-top: 20px;">
+    <button class="centered-btn" onclick="location.href='/'" data-i18n="back_to_home">Back to Home</button>
+  </div>
+  </div>
+
+  <script src="{{ url_for('static', filename='js/mood.js') }}"></script>
+  
+  <style>
+    #language-switcher {
+      position: fixed;
+      bottom: 20px;
+      left: 20px;
+      z-index: 1000;
+    }
+    #language-switcher button {
+      padding: 5px 10px;
+      margin-right: 5px;
+      background-color: #f0f0f0;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    #language-switcher button:hover {
+      background-color: #e0e0e0;
+    }
+    .dark-mode #language-switcher button {
+      background-color: #444;
+      color: #fff;
+      border-color: #666;
+    }
+    .dark-mode #language-switcher button:hover {
+      background-color: #555;
+    }
+  </style>
+
+  <script>
+  // 深色模式初始化函式
+  function initTheme() {
+    const savedTheme = localStorage.getItem("theme") || "light";
+    document.body.classList.toggle("dark-mode", savedTheme === "dark");
+
+    const themeSelect = document.getElementById("themeSelect");
+    if (themeSelect) themeSelect.value = savedTheme;
+  }
+
+  document.addEventListener("DOMContentLoaded", initTheme);
+</script>
+
+</body>
+
+</html>

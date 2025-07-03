@@ -1,0 +1,45 @@
+#map { height: 90vh; width: 80%; margin: 0 auto;}
+
+  #controls {
+    padding: 10px;
+    text-align: center;
+    border-radius: 120px;
+    background: rgba(255, 255, 255, 0.5);
+  }
+
+  #controls button {
+    font-size: 18px;
+    padding: 6px 14px;
+    margin: 5px;
+  }
+  #courseSelect {
+    display: block;          /* 讓它可以用 margin auto 水平置中 */
+    margin: 20px auto;       /* 上下 20px 間距，左右自動置中 */
+    width: 50%;              /* 控制寬度，不要滿版，你可以調整成其他百分比或固定像素 */
+    max-width: 300px;        /* 避免在大螢幕太寬 */
+    padding: 8px 12px;       /* 美觀的內距 */
+    font-size: 16px;         /* 字體大小 */
+  }
+  
+  #status,
+  #stats {
+    padding: 4px 8px;
+    font-weight: bold;
+  }
+  /* 🌙 深色模式整合樣式區塊 */
+
+.dark-mode #controls {
+  background-color: rgba(30, 30, 30, 0.6);
+  border: 1px solid #444;
+  border-radius: 120px;
+}
+
+.dark-mode #controls button {
+  background-color: #444;
+  color: #fff;
+  border: 1px solid #666;
+}
+
+.dark-mode #controls #status #stats {
+  color: #ddd;
+}

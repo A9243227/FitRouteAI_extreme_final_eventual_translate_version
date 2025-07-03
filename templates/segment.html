@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="{{ get_user_language() }}">
+
+<head>
+  <meta charset="UTF-8">
+  <title>{{ translate('segment_page_title') }}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/segment.css') }}">
+  <link rel="icon" type="image/png" href="{{ url_for('static', filename='images/cycling-icon.png') }}">
+  <script src="{{ url_for('static', filename='js/i18n.js') }}"></script>
+</head>
+
+<body>
+  <div id="map-container">
+    <div id="map" style="height: 500px"> <!-- Google Map 將會渲染在此 --></div>
+  </div>
+  <!-- 隱藏 input 提供 JS 取用 -->
+  <input type="hidden" id="start-input" value="{{ start }}">
+  <input type="hidden" id="end-input" value="{{ end }}">
+
+  <div id="result-panel">
+    <h3 data-i18n="road_section_info">🚴 Road section information</h3>
+    <p id="distance-info"></p>
+    <p id="duration-info"></p>
+    <p id="elevation-info" style="display: none;"></p>
+    <p id="slope-info" style="display: none;"></p>
+    <h3 data-i18n="weather">🌤️ Weather</h3>
+    <div id="weather-info"></div>
+    <h3 data-i18n="air_quality">🌫️ Air quality</h3>
+    <div id="air-quality-info"></div>
+  </div>
+
+  <!-- Dataset 功能相關的 #route-power-info 區塊已移除 -->
+  <h1 data-i18n="ride_tips">Ride Tips</h1>
+
+  <div class="detail">
+
+  </div>
+  <div class="detail">
+    <span class="label" data-i18n="recommended_speed">🚴 Recommended speed：</span>
+    <span class="value" id="suggested_speed">-- km/h</span>
+  </div>
+  <div class="detail">
+    <span class="label" data-i18n="estimated_calories_burned">🔥 Estimated calories burned：</span>
+    <span class="value" id="suggested_calories">-- kcal</span>
+  </div>
+  <div class="detail">
+    <span class="label" data-i18n="recommended_water_intake">💧 Recommended water intake：</span>
+    <span class="value" id="suggested_water_ml">-- ml</span>
+  </div>
+
+  <div class="detail">
+    <span class="label" data-i18n="tips">🚴 Riding tips：</span>
+    <span id="tip-streaming"></span>
+  </div>
+
+  <div class="center-btn-wrapper">
+    <button class="btn btn-yellow">
+      <span style="font-weight:bold;" onclick="location.href='/mood'" data-i18n="reset_filters">Reset Filters</span>
+    </button>
+
+  </div>
+
+  <div class="button-group-outer">
+    <button class="btn btn-blue" onclick="location.href='/'" data-i18n="return_to_home">Return to Home</button>
+    <button class="btn btn-pink" onclick="startWorkout()" data-i18n="start_workout">Start Workout!</button>
+  </div>
+  
+
+  <style>
+    #language-switcher {
+      position: fixed;
+      bottom: 20px;
+      left: 20px;
+      z-index: 1000;
+    }
+    #language-switcher button {
+      padding: 5px 10px;
+      margin-right: 5px;
+      background-color: #f0f0f0;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    #language-switcher button:hover {
+      background-color: #e0e0e0;
+    }
+    .dark-mode #language-switcher button {
+      background-color: #444;
+      color: #fff;
+      border-color: #666;
+    }
+    .dark-mode #language-switcher button:hover {
+      background-color: #555;
+    }
+  </style>
+  <script loading="async" defer
+    src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBkChog68-PM96LHebsFoRx3kybDwocur4&callback=initMap"></script>
+  <script src="{{ url_for('static', filename='js/segment.js') }}"></script>
+  <script>
+    function applyTheme(theme) {
+      if (theme === 'dark') {
+        document.body.classList.add("dark-mode");
+      } else {
+        document.body.classList.remove("dark-mode");
+      }
+    }
+
+    function initTheme() {
+      const savedTheme = localStorage.getItem("theme") || "light";
+      applyTheme(savedTheme);
+    }
+
+    // 當頁面載入時就套用主題
+    document.addEventListener("DOMContentLoaded", initTheme);
+  </script>
+
+
+</body>
+<script>
+  function startTipStreaming() {
+    const tipEl = document.getElementById("tip-streaming");
+    tipEl.innerHTML = "";
+
+    const eventSource = new EventSource("/segment_stream");
+
+    eventSource.onmessage = function (event) {
+      let content = event.data
+        .replace(/\*\*(.+?)\*\*/g, "<b>$1</b>")  // 處理 **粗體**
+        .replace(/\*/g, "");                    // 移除單個 *
+
+      tipEl.innerHTML += content;
+      scrollToBottom?.();
+    };
+
+    eventSource.onerror = function () {
+      eventSource.close();
+    };
+  }
+</script>
+
+
+
+
+</html>

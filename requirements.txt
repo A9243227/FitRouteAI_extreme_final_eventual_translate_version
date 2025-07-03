@@ -1,0 +1,9 @@
+flask
+langchain
+faiss-cpu
+sentence-transformers
+llama-cpp-python
+langchain-community
+flask_sqlalchemy
+flask_cors
+dotenv

@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FitRoute AI</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/chatbot.css') }}">
+  <link rel="icon" type="image/png" href="{{ url_for('static', filename='images/cycling-icon.png') }}">
+  <script src="{{ url_for('static', filename='js/i18n.js') }}"></script>
+
+
+</head>
+
+<body>
+
+  <div style="position: absolute; top: 20px; right: 20px;">
+    {% if session.logged_in %}
+    <a href="/logout" class="btn logout-btn" data-i18n="logout">Logout</a>
+    {% else %}
+    <a href="/login" class="btn login-btn" data-i18n="login">Login</a>
+    {% endif %}
+  </div>
+
+  <div id="app">
+    <div class="logo">
+      <img src="/static/images/FIT logo2.png" alt="Fit Logo" class="logo-img"><span>Route AI</span>
+    </div>
+
+    <div class="welcome">
+      <h2><span data-i18n="hello">Hello</span>, {{ session.get('user_name', 'Guest') }}!</h2>
+      <p data-i18n="happy_to_see_you">Happy to see you!</p>
+    </div>
+    <div class="activity-card activity-start" onclick="location.href='/mood'">
+      <img src="/static/images/start-icon.png" alt="Start">
+    </div>
+  </div>
+
+
+  <nav class="navbar">
+    <div class="nav-item active" data-page="home" data-i18n="home">Home</div>
+    <div class="nav-item" data-page="plans" id="plans-tab" style="display: none;" data-i18n="plans">Plans</div>
+    <div class="nav-item" data-page="progress" data-i18n="progress">Progress</div>
+    <div class="nav-item" data-page="profile" data-i18n="profile">Profile</div>
+  </nav>
+  <script>
+    const user_name = "{{ session.get('user_name', 'Guest') }}"
+    const user_email = "{{ session.get('user_email', '---') }}"
+  </script>
+  <script src="{{ url_for('static', filename='js/script.js') }}" defer></script>
+  <script>
+    // 深色模式初始化函式
+    function initTheme() {
+      const savedTheme = localStorage.getItem("theme") || "light";
+      document.body.classList.toggle("dark-mode", savedTheme === "dark");
+
+      const themeSelect = document.getElementById("themeSelect");
+      if (themeSelect) themeSelect.value = savedTheme;
+    }
+
+    document.addEventListener("DOMContentLoaded", initTheme);
+  </script>
+
+  <!-- 🔵 Chatbot Icon Button -->
+  <div id="chatbot-button">
+    <div class="chatbot-icon-wrapper">
+      <img id="chatbot-icon" src="{{ url_for('static', filename='images/chatbot-icon.png') }}" alt="AI Chatbot" />
+    </div>
+    <span class="chat-tooltip" data-i18n="chatbot_tooltip">Need help with your fitness plan?</span>
+  </div>
+
+
+  <!-- 💬 Chatbot Popup -->
+  <div id="chatbot-popup" class="hidden">
+    <div class="chat-header" data-i18n="chatbot_header">FitRoute AI Assistant 🤖</div>
+    <div class="chat-body">
+    </div>
+    <div class="chat-input">
+      <input type="text" data-i18n-placeholder="type_message" placeholder="Type your message..." />
+      <button data-i18n="send">Send</button>
+    </div>
+  </div>
+
+  <script>
+    // 檢查是否登入，若登入則顯示 Plans 項目
+    fetch('/api/check_login')
+      .then(res => res.json())
+      .then(data => {
+        if (data.logged_in) {
+          document.getElementById('plans-tab').style.display = 'block';
+        }
+      });
+  </script>
+  <script src="{{ url_for('static', filename='js/chatbot.js') }}"></script>
+</body>
+
+</html>

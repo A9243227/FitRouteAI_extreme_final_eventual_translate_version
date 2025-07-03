@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="{{ get_user_language() }}">
+
+<head>
+  <meta charset="UTF-8">
+  <title>{{ translate('splash_page_title') }}</title>
+  <script src="{{ url_for('static', filename='js/i18n.js') }}"></script>
+  <style>
+    body {
+      margin: 0;
+      background-color: #ffffff;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      transition: opacity 0.5s ease-in-out;
+    }
+
+    .logo-container {
+      text-align: center;
+    }
+
+    .logo-container img {
+      width: 60vw;
+      /* 佔螢幕 60% 的寬度 */
+      max-width: 800px;
+      /* 避免在大螢幕上太大 */
+      height: auto;
+      animation: fadeIn 1.2s ease-in-out;
+    }
+
+    .logo-text {
+      margin-top: 20px;
+      font-size: 80px;
+      /* 不會太小，適中 */
+      font-weight: 600;
+      color: #333;
+      animation: fadeIn 1.5s ease-in-out;
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+      }
+
+      to {
+        opacity: 1;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="logo-container">
+    <img src="{{ url_for('static', filename='images/FIT logo.png') }}" alt="FitRoute AI Logo">
+    <div class="logo-text">Route AI</div>
+  </div>
+
+  <style>
+    #language-switcher {
+      position: fixed;
+      bottom: 20px;
+      left: 20px;
+      z-index: 1000;
+    }
+    #language-switcher button {
+      padding: 5px 10px;
+      margin-right: 5px;
+      background-color: #f0f0f0;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    #language-switcher button:hover {
+      background-color: #e0e0e0;
+    }
+  </style>
+
+  <script>
+    // 等待 DOM 和翻譯載入完成
+    document.addEventListener('DOMContentLoaded', function() {
+      // 確保翻譯已載入
+      if (typeof loadTranslations === 'function') {
+        const currentLang = localStorage.getItem('language') || 'zh';
+        loadTranslations(currentLang);
+      }
+    });
+    
+    setTimeout(() => {
+      document.body.style.opacity = 0;
+      setTimeout(() => {
+        window.location.href = "/";
+      }, 500);
+    }, 2500); // 2.5 秒後淡出＋跳轉
+  </script>
+</body>
+
+</html>

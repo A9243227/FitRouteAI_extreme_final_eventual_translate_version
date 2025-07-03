@@ -1,0 +1,116 @@
+<!DOCTYPE html> 
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <title>聊天串流測試</title>
+  <style>
+    body {
+      background-color: #fff;
+      color: #000;
+      font-family: Arial, sans-serif;
+    }
+
+    body.dark-mode {
+      background-color: #1e1e1e;
+      color: #f1f1f3;
+    }
+
+    input[type="text"] {
+      padding: 5px;
+      font-size: 16px;
+    }
+
+    body.dark-mode input[type="text"] {
+      background-color: #2e2e33;
+      color: #f1f1f1;
+      border: 1px solid #555;
+    }
+
+    #chat-box {
+      white-space: pre-wrap;
+      border: 1px solid #ccc;
+      padding: 10px;
+      width: 500px;
+      height: 300px;
+      overflow-y: scroll;
+      font-family: Arial, sans-serif;
+      background-color: #f9f9f9;
+      color: #000;
+    }
+
+    body.dark-mode #chat-box {
+      background-color: #2a2a2e;
+      color: #f1f1f3;
+      border: 1px solid #3a3a3c;
+    }
+  </style>
+</head>
+<body>
+  <h2>🚴 自行車專家 聊天系統</h2>
+  <div id="chat-box"></div>
+  <input type="text" id="user-input" placeholder="輸入你的問題..." style="width: 400px;" />
+  <button onclick="sendMessage()">送出</button>
+
+  <script>
+    function markdownToHTML(text) {
+      return text.replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');
+    }
+
+    async function sendMessage() {
+      const userInput = document.getElementById('user-input').value.trim();
+      if (!userInput) return;
+
+      const chatBox = document.getElementById('chat-box');
+      chatBox.innerHTML += `👤你：${userInput}\n`;
+
+      const response = await fetch("/chat_stream", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          messages: [
+            { role: "system", content: "你是一位自行車專家，請以專家用淺顯易懂的方式回答，回答字數在100字以內。" },
+            { role: "user", content: userInput }
+          ]
+        }),
+      });
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder("utf-8");
+      let done = false;
+      let assistantText = "";
+
+      const assistantDiv = document.createElement("div");
+      assistantDiv.innerHTML = "🤖模型：";
+      chatBox.appendChild(assistantDiv);
+
+      while (!done) {
+        const { value, done: doneReading } = await reader.read();
+        done = doneReading;
+        if (value) {
+          const chunk = decoder.decode(value);
+          assistantText += chunk;
+
+          let safeText = assistantText
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;");
+
+          safeText = safeText.replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');
+          assistantDiv.innerHTML = "🤖模型：" + safeText;
+          chatBox.scrollTop = chatBox.scrollHeight;
+        }
+      }
+
+      document.getElementById('user-input').value = "";
+    }
+
+    // 深色模式初始化函式
+    function initTheme() {
+      const savedTheme = localStorage.getItem("theme") || "light";
+      document.body.classList.toggle("dark-mode", savedTheme === "dark");
+    }
+
+    document.addEventListener("DOMContentLoaded", initTheme);
+  </script>
+</body>
+</html>

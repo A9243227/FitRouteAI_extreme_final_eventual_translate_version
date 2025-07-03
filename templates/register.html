@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="{{ get_user_language() }}">
+<head>
+  <meta charset="UTF-8">
+  <title>{{ translate('register') }}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <link rel="icon" type="image/png" href="{{ url_for('static', filename='images/cycling-icon.png') }}">
+  <script src="{{ url_for('static', filename='js/i18n.js') }}"></script>
+</head>
+<body>
+
+<div class="form-container">
+  <h2 data-i18n="register">Register</h2>
+  <form method="post">
+    <p>
+    <label data-i18n="username">Name:</label>
+    <input type="text" name="name" required>
+    </p>
+
+    <p>
+    <label data-i18n="email">Email:</label>
+    <input type="email" name="email" required>
+    </p>
+
+    <p>
+    <label data-i18n="password">Password:</label>
+    <input type="password" name="password" required>
+    </p>
+
+    <button type="submit" class="submit-btn" data-i18n="register">Register</button>
+  </form>
+
+  <p class="register-link"><span data-i18n="already_have_account">Already have an account?</span> <a href="/login" data-i18n="click_here_to_login">Login</a></p>
+</div>
+
+
+<style>
+  #language-switcher {
+    position: fixed;
+    bottom: 20px;
+    left: 20px;
+    z-index: 1000;
+  }
+  #language-switcher button {
+    padding: 5px 10px;
+    margin-right: 5px;
+    background-color: #f0f0f0;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  #language-switcher button:hover {
+    background-color: #e0e0e0;
+  }
+  .dark-mode #language-switcher button {
+    background-color: #444;
+    color: #fff;
+    border-color: #666;
+  }
+  .dark-mode #language-switcher button:hover {
+    background-color: #555;
+  }
+</style>
+<script>
+  // 深色模式初始化函式
+  function initTheme() {
+    const savedTheme = localStorage.getItem("theme") || "light";
+    document.body.classList.toggle("dark-mode", savedTheme === "dark");
+
+    const themeSelect = document.getElementById("themeSelect");
+    if (themeSelect) themeSelect.value = savedTheme;
+  }
+
+  // 等待 DOM 和翻譯載入完成
+  document.addEventListener('DOMContentLoaded', function() {
+    // 初始化主題
+    initTheme();
+    
+    // 確保翻譯已載入
+    if (typeof loadTranslations === 'function') {
+      const currentLang = localStorage.getItem('language') || 'zh';
+      loadTranslations(currentLang);
+    }
+  });
+</script>
+</body>
+</html>

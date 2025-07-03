@@ -1,0 +1,9 @@
+{
+  "start_time": "2025-05-26 05:30:00",
+  "duration": 7200,
+  "distance": 30000,
+  "average_speed": 15.0,
+  "plan": "a",
+  "start": "A",
+  "end": "B"
+}

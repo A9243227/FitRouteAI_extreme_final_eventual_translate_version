@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="{{ get_user_language() }}">
+<head>
+  <meta charset="UTF-8">
+  <title>{{ translate('route_page_title') }}</title>
+
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/route.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <link rel="icon" type="image/png" href="{{ url_for('static', filename='images/cycling-icon.png') }}">
+  <script src="{{ url_for('static', filename='js/i18n.js') }}"></script>
+</head>
+<body>
+  <h1 data-i18n="road_section_info">Road Section Information</h1>
+  <p id="info" data-i18n="loading">Loading...</p>
+  <select id="courseSelect" class="setting-input">
+    <option value="" data-i18n="select_your_plan">-----Select your plan-----</option>
+    <option value="a" data-i18n="recovery_ride">Recovery Ride</option>
+    <option value="b" data-i18n="endurance">Endurance</option>
+    <option value="c" data-i18n="tempo">Tempo</option>
+    <option value="d" data-i18n="threshold">Threshold</option>
+    <option value="e" data-i18n="vo2_max">VO2 Max</option>
+    <option value="f" data-i18n="anaerobic_sprint">Anaerobic/Sprint</option>
+  </select>
+  <div id="controls">
+  <button id="toggleBtn" type="button" onclick="toggleTracking()" data-i18n="start">Start</button>
+  <button id="endBtn" type="button" onclick="endSession()" data-i18n="end_training">End Training</button>
+
+  <div id="status" data-i18n="not_started_yet">Not Started Yet</div>
+  <div id="stats">
+    ⏱️ <span data-i18n="time">Time</span>：<span id="elapsedTime">0</span> <span data-i18n="seconds">seconds</span> ｜ 
+    📏 <span data-i18n="distance">Distance</span>：<span id="totalDistance">0.0</span> <span data-i18n="meters">meters</span> ｜ 
+    🚴‍♂️ <span data-i18n="average_speed">Average Speed</span>：<span id="avgSpeed">0.0</span> <span data-i18n="km_per_h">km/h</span>
+  </div>
+</div>
+  </div>
+
+  <div id="map"></div>
+
+  <!-- ✅ 載入 route.js（裡面已定義 window.initMap）-->
+  <script src="{{ url_for('static', filename='js/route.js') }}"></script>
+
+  <!-- ✅ 載入 Google Maps，無 callback，自行等載入完成後呼叫 initMap -->
+  <script
+    src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBkChog68-PM96LHebsFoRx3kybDwocur4&libraries=geometry"
+    async defer></script>
+
+  <!-- ✅ 等地圖載入完成後啟動 -->
+  <script>
+    window.addEventListener("load", () => {
+      const waitForGoogle = setInterval(() => {
+        if (window.google && window.google.maps && window.google.maps.Map) {
+          clearInterval(waitForGoogle);
+          window.initMap();
+        }
+      }, 100);
+    });
+  </script>
+<script>
+  function applyTheme(theme) {
+    document.body.classList.toggle("dark-mode", theme === "dark");
+  }
+
+  function initTheme() {
+    const savedTheme = localStorage.getItem("theme") || "light";
+    applyTheme(savedTheme);
+  }
+
+  document.addEventListener("DOMContentLoaded", () => {
+    // 確保翻譯已載入
+    if (typeof loadTranslations === 'function') {
+      const currentLang = localStorage.getItem('language') || 'zh';
+      loadTranslations(currentLang);
+    }
+    
+    initTheme();
+
+    const distance = localStorage.getItem("segment_distance_km");
+    console.log("Getting distance:", distance);
+
+    const info = document.getElementById("info");
+    if (distance) {
+      info.innerHTML = `<p>${translate('distance')}：${distance} ${translate('km')}</p>`;
+    } else {
+      info.textContent = translate('lack_of_data');
+    }
+  });
+</script>
+
+<style>
+  #language-switcher {
+    position: fixed;
+    bottom: 20px;
+    left: 20px;
+    z-index: 1000;
+  }
+  #language-switcher button {
+    padding: 5px 10px;
+    margin-right: 5px;
+    background-color: #f0f0f0;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  #language-switcher button:hover {
+    background-color: #e0e0e0;
+  }
+  .dark-mode #language-switcher button {
+    background-color: #444;
+    color: #fff;
+    border-color: #666;
+  }
+  .dark-mode #language-switcher button:hover {
+    background-color: #555;
+  }
+</style>
+
+</body>
+</html>

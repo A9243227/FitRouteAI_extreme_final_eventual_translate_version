@@ -1,0 +1,214 @@
+#chatbot-button {
+  position: fixed;
+  bottom: 65px;  /* 貼近 navbar 但不重疊 */
+  right: 22px;
+  width: 60px;
+  height: 60px;
+  z-index: 9999;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  filter: drop-shadow(0px 2px 4px rgba(0, 50, 130, 0.35));
+
+}
+
+#chatbot-button img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  border-radius: 8px; 
+}
+
+#chatbot-button:hover {
+  transform: translateY(-2px) scale(1.05); /* ✅ 輕輕浮起 */
+  filter: drop-shadow(0px 2px 4px rgba(0, 50, 130, 0.35));
+
+}
+
+/* === Chatbot Popup === */
+#chatbot-popup {
+  position: fixed;
+  bottom: 140px;
+  right: 20px;
+  width: 300px;
+  max-height: 400px;
+  background-color: white;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  z-index: 9998;
+  animation: slideUp 0.3s ease forwards;
+}
+#chatbot-popup.hidden {
+  display: none;
+}
+
+.chat-header {
+  background-color: #1f4c8a;
+  color: white;
+  padding: 10px;
+  font-weight: bold;
+  text-align: center;
+}
+
+.chat-body {
+  flex: 1;
+  padding: 16px;
+  overflow-y: auto;
+  background: #f9f9f9;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.message {
+  padding: 10px 14px;
+  border-radius: 16px;
+  font-size: 14px;
+  line-height: 1.5;
+  max-width: 75%;
+  word-wrap: break-word;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.message.bot {
+  align-self: flex-start;
+  background-color: #e9f1ff;
+  color: #1a1a1a;
+  border-top-left-radius: 4px;
+}
+
+.message.user {
+  align-self: flex-end;
+  background-color: #d1f7d6;
+  color: #1a1a1a;
+  border-top-right-radius: 4px;
+}
+
+
+.chat-input {
+  display: flex;
+  border-top: 1px solid #ddd;
+  padding: 6px;
+  background: white;
+}
+.chat-input input {
+  flex: 1;
+  border: none;
+  padding: 8px;
+  font-size: 14px;
+  outline: none;
+}
+.chat-input button {
+  background-color: #1f4c8a;
+  color: white;
+  border: none;
+  padding: 8px 12px;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* === Tooltip for Chatbot Icon === */
+.chat-tooltip {
+  position: absolute;
+  bottom: 70px;
+  right: 0;
+  padding: 6px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  white-space: nowrap;
+  backdrop-filter: blur(10px);
+  background: rgba(255, 255, 255, 0.25);  /* 半透明玻璃感 */
+  color: #1f4c8a;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  box-shadow: 0 8px 8px rgba(0, 0, 0, 0.15);
+  opacity: 0;
+  transform: translateY(5px);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+  pointer-events: none;
+  z-index: 9999;
+}
+/* === Tooltip 顯示 === */
+#chatbot-button:hover .chat-tooltip {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* === 按鈕主體樣式 === */
+#chatbot-button {
+  position: fixed;
+  bottom: 70px;
+  right: 30px;
+  z-index: 1000;
+  cursor: pointer;
+  animation: float 3s ease-in-out infinite;
+  transition: transform 0.3s ease-in-out;
+}
+
+/* 外層上下飄動動畫 */
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-5px); }
+}
+
+/* Hover 搖動效果 */
+@keyframes shake {
+  0%, 100% { transform: rotate(0deg); }
+  25% { transform: rotate(6deg); }
+  50% { transform: rotate(-6deg); }
+  75% { transform: rotate(4deg); }
+}
+
+#chatbot-button:hover {
+  animation: shake 0.5s ease-in-out;
+}
+
+/* 包裹圖示的容器 */
+.chatbot-icon-wrapper {
+  display: inline-block;
+}
+
+/* 向左移動動畫 */
+@keyframes moveLeft {
+  0%   { transform: translateX(0); }
+  50%  { transform: translateX(-100px); }
+  100% { transform: translateX(0); }
+}
+
+/* 觸發向左移動時用的class */
+.move-left {
+  animation: moveLeft 3s ease-in-out;
+}
+
+
+.message-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.message-row.bot {
+  justify-content: flex-start;
+}
+
+.avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  object-fit: cover;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  flex-shrink: 0;
+}
