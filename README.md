@@ -18,6 +18,7 @@ FitRouteAI 是一個基於 Python 的智慧自行車訓練助手，旨在幫助�
 
 *   **Python:** 3.10.16
 *   **套件：** 所有的 Python 套件需求列於 `requirements.txt` 文件中。
+*   **模型：** 由於模型大小為2GB 請至`https://reurl.cc/Rkn5Xr`下載 並將`gemma-3-4b-it-Q4_K_M.gguf`放置於`model`資料夾
 
 ## 安裝步驟
 
