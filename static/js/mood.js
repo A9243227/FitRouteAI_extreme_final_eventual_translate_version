@@ -47,15 +47,26 @@ function setupSlider(sliderId, emojiId, statusId, levels) {
   const slider = document.getElementById(sliderId);
   const emoji = document.getElementById(emojiId);
   const status = document.getElementById(statusId);
+  if (!slider || !emoji || !status) return;
+
+  // 把 levels 掛在元素上，語言切換時只換這份資料，事件監聽器維持一份就好
+  slider._levels = levels;
 
   // 頁面載入時設置初始值
   updateSliderDisplay(slider, emoji, status, levels);
 
+  // initializeSliders() 每次語言切換都會再跑一遍，
+  // 沒有這個旗標的話事件監聽器會一直疊加、重複送出請求
+  if (slider.dataset.listenersBound === 'true') return;
+  slider.dataset.listenersBound = 'true';
+
   slider.addEventListener('input', () => {
-    updateSliderDisplay(slider, emoji, status, levels);
+    updateSliderDisplay(slider, emoji, status, slider._levels);
   });
 
-  slider.addEventListener('mouseup', () => {
+  // 原本監聽 mouseup，觸控裝置上不會觸發，拖完滑桿的數值送不出去。
+  // range input 的 change 在滑鼠與觸控放開時都會觸發。
+  slider.addEventListener('change', () => {
     const value = slider.value;
     console.log(sliderId + ' value: ' + value); // Debug: Display slider value
     sendSliderValue(sliderId, value);
@@ -66,11 +77,16 @@ function setupSlider(sliderId, emojiId, statusId, levels) {
 }
 
 function sendSliderValue(sliderId, value) {
-  // Use the passed value instead of reading from the DOM
-  const moodValue = document.getElementById('mood-slider').value;
-  const energyValue = document.getElementById('energy-slider').value;
-  const hydrationValue = document.getElementById('hydration-slider').value;
-  const fatigueValue = document.getElementById('fatigue-slider').value;
+  const moodEl = document.getElementById('mood-slider');
+  const energyEl = document.getElementById('energy-slider');
+  const hydrationEl = document.getElementById('hydration-slider');
+  const fatigueEl = document.getElementById('fatigue-slider');
+  if (!moodEl || !energyEl || !hydrationEl || !fatigueEl) return;
+
+  const moodValue = moodEl.value;
+  const energyValue = energyEl.value;
+  const hydrationValue = hydrationEl.value;
+  const fatigueValue = fatigueEl.value;
 
   console.log('Frontend slider values:');
   console.log('mood:', moodValue);
@@ -97,6 +113,9 @@ function sendSliderValue(sliderId, value) {
     document.cookie = `energy=${energyValue}; path=/`;
     document.cookie = `hydration=${hydrationValue}; path=/`;
     document.cookie = `fatigue=${fatigueValue}; path=/`;
+  })
+  .catch(error => {
+    console.error('更新滑桿數值失敗：', error);
   });
 }
 

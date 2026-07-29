@@ -80,12 +80,16 @@ const darkMapStyle = [
     stylers: [{ color: '#17263c' }]
   }
 ];
+// 由 initMap() 算完路線後填入，供 startWorkout() 直接使用，
+// 不必再從畫面文字反解（Google 回傳的文字會隨語系變成 "3.4 km" / "3.4 公里"）
+let currentDistanceKm = null;
+
 function parseDurationTextToMinutes(durationText) {
-  // 解析像 "1 小時 15 分鐘" 或 "20 分鐘" 的字串，轉成總分鐘數
+  // 解析像 "1 小時 15 分鐘"、"1 hour 15 mins"、"20 分鐘" 的字串，轉成總分鐘數
   let hours = 0, minutes = 0;
-  const hourMatch = durationText.match(/(\d+)\s*小時/);
+  const hourMatch = durationText.match(/(\d+)\s*(小時|hours?|hrs?|h\b)/i);
   if (hourMatch) hours = parseInt(hourMatch[1], 10);
-  const minuteMatch = durationText.match(/(\d+)\s*分鐘/);
+  const minuteMatch = durationText.match(/(\d+)\s*(分鐘|分|minutes?|mins?|m\b)/i);
   if (minuteMatch) minutes = parseInt(minuteMatch[1], 10);
   return hours * 60 + minutes;
 }
@@ -157,7 +161,11 @@ async function initMap() {
       slopeInfoEl.style.display = 'block';
       // 取得距離 (km) 和時間 (分鐘數)
       const distanceKm = leg.distance.value / 1000;
-      const durationMin = parseDurationTextToMinutes(leg.duration.text);
+      currentDistanceKm = distanceKm;
+      // leg.duration.value 是秒數，比解析顯示文字可靠
+      const durationMin = leg.duration.value
+        ? leg.duration.value / 60
+        : parseDurationTextToMinutes(leg.duration.text);
       const elevationGain = Math.max(0, endElev - startElev).toFixed(1);  // 若有下坡不變成負數
             
       const segmentData = {
@@ -218,9 +226,16 @@ async function initMap() {
 
 async function getElevation(latLng) {
   const url = `/api/elevation?lat=${latLng.lat()}&lng=${latLng.lng()}`;
-  const res = await fetch(url);
-  const data = await res.json();
-  return data.results[0]?.elevation.toFixed(1);
+  try {
+    const res = await fetch(url);
+    const data = await res.json();
+    // 代理失敗時 data 沒有 results，原本 data.results[0] 會直接丟 TypeError
+    const elevation = data?.results?.[0]?.elevation;
+    return typeof elevation === 'number' ? Number(elevation.toFixed(1)) : 0;
+  } catch (err) {
+    console.error('Elevation API Error:', err);
+    return 0;
+  }
 }
 
 async function getWeatherInfo(lat, lng) {
@@ -272,16 +287,19 @@ function updateInfoPanel(id, html) {
 }
 
 function startWorkout() {
-  const distEl = document.getElementById("distance-info");
+  // 原本只用正則從畫面文字抓 "：3.4 公里"，一旦 Google Maps 回英文
+  // ("3.4 km") 就永遠解析失敗、無法開始訓練。改成優先用算路線時存下的數值。
+  let distanceKm = currentDistanceKm;
 
-  if (!distEl) {
-    alert(translate('route_info_not_loaded'));
-    return;
+  if (!distanceKm) {
+    const distEl = document.getElementById("distance-info");
+    if (!distEl) {
+      alert(translate('route_info_not_loaded'));
+      return;
+    }
+    const match = distEl.textContent.match(/([\d.]+)\s*(公里|km)/i);
+    distanceKm = match ? parseFloat(match[1]) : null;
   }
-
-  const text = distEl.textContent;
-  const match = text.match(/：([\d.]+)\s*公里/);
-  const distanceKm = match ? parseFloat(match[1]) : null;
 
   if (!distanceKm) {
     alert(translate('cannot_parse_distance'));

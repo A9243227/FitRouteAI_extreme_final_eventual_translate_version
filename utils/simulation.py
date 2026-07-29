@@ -1,11 +1,11 @@
 import pandas as pd
-from flask import jsonify
-import xgboost as xgb
 import os
 import joblib
-# Load model at module level so it's loaded only once
 
-xgb_model = joblib.load("model/xgb_model.pkl")
+# Load model at module level so it's loaded only once
+# 用絕對路徑，才不會因為啟動時的工作目錄不同而找不到模型
+_PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+xgb_model = joblib.load(os.path.join(_PROJECT_ROOT, "model", "xgb_model.pkl"))
 
 def simulate_ride(weight_kg, avg_power_w, w_per_kg,
                   distance_m, avg_grade, difficulty, season='Spring'):

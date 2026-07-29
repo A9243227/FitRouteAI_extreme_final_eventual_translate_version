@@ -2,6 +2,8 @@
 document.addEventListener("DOMContentLoaded", () => {
   const icon = document.getElementById("chatbot-button");
   const popup = document.getElementById("chatbot-popup");
+  if (!icon || !popup) return;  // 沒有 chatbot 區塊的頁面直接跳過，避免 null 解參考
+
   const sendBtn = popup.querySelector("button");
   const input = popup.querySelector("input");
   const body = popup.querySelector(".chat-body");
@@ -77,48 +79,50 @@ document.addEventListener("DOMContentLoaded", () => {
         row.appendChild(botMsg);
         body.appendChild(row);
       }
-    });  
-  function getRandomInterval(minSec, maxSec) {
-        return (Math.random() * (maxSec - minSec) + minSec) * 1000;
-      }
+    });
 
-      // 隨機換圖，持續3秒，然後換回預設圖，並在隨機30~60秒後再觸發
-  function triggerRandomImageChange() {
-        const randomIndex = Math.floor(Math.random() * images.length);
-        icon.src = images[randomIndex];
+    scrollToBottom();
+  }
 
-        setTimeout(() => {
-          icon.src = defaultIcon;
-        }, 3000);
+  // === 圖示隨機動畫 ===
+  // 這整段原本被寫在 loadMessages() 內部、而且在 `if (!saved) return;` 之後，
+  // 所以第一次開啟網站（還沒有聊天紀錄）時動畫永遠不會啟動。移到外層執行。
+  function setupIconAnimations() {
+    const wrapper = document.querySelector('.chatbot-icon-wrapper');
+    const iconImg = document.getElementById('chatbot-icon');
+    if (!wrapper || !iconImg) return;
 
-        setTimeout(triggerRandomImageChange, getRandomInterval(30, 60));
-      }
+    const images = ['/static/images/fluffy.png'];
+    const defaultIcon = '/static/images/chatbot-icon.png';
 
-      // 隨機觸發向左移動動畫，動畫持續1秒，然後移除class，並在隨機30~60秒後再觸發
-  function triggerRandomMoveLeft() {
-        wrapper.classList.add('move-left');
-        setTimeout(() => {
-          wrapper.classList.remove('move-left');
-        }, 3000);
+    function getRandomInterval(minSec, maxSec) {
+      return (Math.random() * (maxSec - minSec) + minSec) * 1000;
+    }
 
-        setTimeout(triggerRandomMoveLeft, getRandomInterval(30, 60));
-      }
+    // 隨機換圖，持續3秒，然後換回預設圖，並在隨機30~60秒後再觸發
+    function triggerRandomImageChange() {
+      const randomIndex = Math.floor(Math.random() * images.length);
+      iconImg.src = images[randomIndex];
 
-      // 啟動兩個獨立流程
-  setTimeout(triggerRandomImageChange, getRandomInterval(30, 60));
-  setTimeout(triggerRandomMoveLeft, getRandomInterval(30, 60));
+      setTimeout(() => {
+        iconImg.src = defaultIcon;
+      }, 3000);
 
-  const wrapper = document.querySelector('.chatbot-icon-wrapper');
-  const icon = document.getElementById('chatbot-icon');
+      setTimeout(triggerRandomImageChange, getRandomInterval(30, 60));
+    }
 
-  const images = [
-    '/static/images/fluffy.png',
-    
-  ];
-  const defaultIcon = '/static/images/chatbot-icon.png';
+    // 隨機觸發向左移動動畫，然後移除 class，並在隨機30~60秒後再觸發
+    function triggerRandomMoveLeft() {
+      wrapper.classList.add('move-left');
+      setTimeout(() => {
+        wrapper.classList.remove('move-left');
+      }, 3000);
 
+      setTimeout(triggerRandomMoveLeft, getRandomInterval(30, 60));
+    }
 
-  scrollToBottom();
+    setTimeout(triggerRandomImageChange, getRandomInterval(30, 60));
+    setTimeout(triggerRandomMoveLeft, getRandomInterval(30, 60));
   }
 
   function saveMessage(from, text) {
@@ -160,38 +164,51 @@ document.addEventListener("DOMContentLoaded", () => {
     body.appendChild(row);
     scrollToBottom();
 
-    const response = await fetch("/chat_stream", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        messages: [
-          { role: "system", content: "你必須根據使用者語言用一樣的語言輸出，你是專業自行車顧問，僅回應公路車、登山車、訓練、配件、維修、比賽、營養與功率訓練。禁止醫療診斷與法律違規操作，僅能建議就醫。禁止仇恨、暴力、不當內容與商業偏見。回答需白話、語氣活潑、準確、不說廢話，80字內。避免主觀詞（如「最好」），改用中性描述。若問題模糊請引導補充資訊。每次互動回應一次問題即可。保持內容穩定、中立、可重現。" },
-          { role: "user", content: text }
-        ]
-      })
-    });
-
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder("utf-8");
-    let done = false;
     let fullText = "";
+    try {
+      const response = await fetch("/chat_stream", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          messages: [
+            { role: "system", content: "你必須根據使用者語言用一樣的語言輸出，你是專業自行車顧問，僅回應公路車、登山車、訓練、配件、維修、比賽、營養與功率訓練。禁止醫療診斷與法律違規操作，僅能建議就醫。禁止仇恨、暴力、不當內容與商業偏見。回答需白話、語氣活潑、準確、不說廢話，80字內。避免主觀詞（如「最好」），改用中性描述。若問題模糊請引導補充資訊。每次互動回應一次問題即可。保持內容穩定、中立、可重現。" },
+            { role: "user", content: text }
+          ]
+        })
+      });
 
-    while (!done) {
-      const { value, done: doneReading } = await reader.read();
-      done = doneReading;
-      if (value) {
-        const chunk = decoder.decode(value);
-        fullText += chunk;
+      if (!response.ok || !response.body) {
+        throw new Error(`HTTP ${response.status}`);
+      }
 
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder("utf-8");
+      let done = false;
 
-        let safeText = fullText
-          .replace(/&/g, "&amp;")
-          .replace(/</g, "&lt;")
-          .replace(/>/g, "&gt;");
+      while (!done) {
+        const { value, done: doneReading } = await reader.read();
+        done = doneReading;
+        if (value) {
+          // stream: true 很重要，否則被切在 chunk 邊界的中文字會變成亂碼
+          fullText += decoder.decode(value, { stream: true });
 
-        safeText = safeText.replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');
-        botMsg.innerHTML = safeText;
+          let safeText = fullText
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;");
+
+          safeText = safeText.replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');
+          botMsg.innerHTML = safeText;
+          scrollToBottom();
+        }
+      }
+      fullText += decoder.decode();
+    } catch (err) {
+      console.error("chat_stream 失敗:", err);
+      if (!fullText) {
+        botMsg.textContent = "⚠️ 連線失敗，請稍後再試。";
         scrollToBottom();
+        return;
       }
     }
 
@@ -217,9 +234,10 @@ document.addEventListener("DOMContentLoaded", () => {
   
   function initializeChatbot() {
     if (isInitialized) return;
-    
+
     loadMessages();
-    
+    setupIconAnimations();
+
     // 檢查是否已經有聊天歷史，如果沒有才顯示歡迎訊息
     const saved = sessionStorage.getItem(MESSAGES_KEY);
     if (!saved || JSON.parse(saved).length === 0) {

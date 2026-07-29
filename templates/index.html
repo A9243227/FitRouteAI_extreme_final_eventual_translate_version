@@ -45,8 +45,9 @@
     <div class="nav-item" data-page="profile" data-i18n="profile">Profile</div>
   </nav>
   <script>
-    const user_name = "{{ session.get('user_name', 'Guest') }}"
-    const user_email = "{{ session.get('user_email', '---') }}"
+    // 用 tojson 而不是手動包引號：名稱含有引號或反斜線時才不會把這段 JS 弄壞
+    const user_name = {{ session.get('user_name', 'Guest') | tojson }};
+    const user_email = {{ session.get('user_email', '---') | tojson }};
   </script>
   <script src="{{ url_for('static', filename='js/script.js') }}" defer></script>
   <script>

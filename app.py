@@ -57,14 +57,45 @@ load_dotenv('key.env')
 
 app = Flask(__name__)
 CORS(app)
+
+# 若 key.env 不存在或缺欄位，這裡若為 None 會讓 session 在執行期才炸掉，
+# 因此提早給預設值並提示。
 app.secret_key = os.getenv('SECRET_KEY')
-app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL')
+if not app.secret_key:
+    print("⚠️ 找不到 SECRET_KEY（請檢查 key.env），暫時使用隨機金鑰，重啟後 session 會失效。")
+    app.secret_key = os.urandom(32)
+
+app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'sqlite:///users.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
 
 # 註冊 Blueprint
 app.register_blueprint(google_proxy)
+
+# --- LLM 延遲載入 ---
+# 原本 llm 只在 `if __name__ == '__main__'` 內建立，改用 gunicorn / flask run
+# 等其他入口啟動時 /chat_stream 會直接 NameError。改成延遲載入 + 鎖，
+# 讓任何啟動方式都能取得同一個實例。
+MODEL_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                          "model", "gemma-3-4b-it-Q4_K_M.gguf")
+_llm = None
+_llm_lock = threading.Lock()
+
+
+def get_llm():
+    global _llm
+    if _llm is None:
+        with _llm_lock:
+            if _llm is None:
+                _llm = Llama(
+                    model_path=MODEL_PATH,
+                    n_gpu_layers=0,
+                    n_threads=16,
+                    n_ctx=2048,
+                    verbose=True
+                )
+    return _llm
 
 # 使用者模型
 class User(db.Model):
@@ -158,8 +189,10 @@ def check_login():
 
 @app.route('/api/plan', methods=['POST'])
 def get_plan():
-    data = request.get_json()
-    
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return jsonify({"error": "Invalid JSON body"}), 400
+
     mode = data.get('mode', 'plan')
     if mode == 'custom':
         try:
@@ -210,8 +243,11 @@ def safe_float(val, default=50):
 
 @app.route("/update_fitness", methods=["POST"])
 def update_fitness():
-    data = request.get_json()
-    resp = make_response({"status": "ok"})
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return jsonify({"status": "error", "message": "Invalid JSON body"}), 400
+
+    resp = make_response(jsonify({"status": "ok"}))
 
     # 設定 cookie 以便之後 generate_ride_inputs() 使用
     for key in ["goal"]:
@@ -222,7 +258,10 @@ def update_fitness():
 
 @app.route("/update_profile", methods=["POST"])
 def update_profile():
-    data = request.get_json()
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return jsonify({"status": "error", "message": "Invalid JSON body"}), 400
+
     resp = make_response(jsonify({"status": "ok"}))
 
     for key in ["age", "height", "weight", "gender"]:
@@ -231,9 +270,34 @@ def update_profile():
 
     return resp
 
+@app.route("/api/update_slider", methods=["POST"])
+def update_slider():
+    """接收 mood 頁面的四個滑桿數值，存進 session 供 generate_ride_inputs() 使用。
+
+    先前前端 mood.js 一直呼叫這個端點，但後端沒有對應的路由，
+    每次拖動滑桿都會收到 404。
+    """
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return jsonify({"status": "error", "message": "Invalid JSON body"}), 400
+
+    slider_values = {
+        key: data[key]
+        for key in ("mood", "energy", "hydration", "fatigue")
+        if key in data
+    }
+    session["ride_inputs"] = {**session.get("ride_inputs", {}), **slider_values}
+
+    resp = make_response(jsonify({"status": "ok"}))
+    for key, value in slider_values.items():
+        resp.set_cookie(key, str(value))
+    return resp
+
 @app.route("/update_segment", methods=["POST"])
 def update_segment():
-    data = request.get_json()
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return jsonify({"status": "error", "message": "Invalid JSON body"}), 400
 
     # 檢查收到的資料
     print("📦 Received segment data:", data)
@@ -249,8 +313,9 @@ def update_segment():
 def segment():
     inputs = generate_ride_inputs(request)
 
-    start = request.form.get('start')
-    end = request.form.get('end')
+    # GET 進來時 form 是空的；用 '' 而不是 None，否則樣板會印出字串 "None"
+    start = request.values.get('start', '')
+    end = request.values.get('end', '')
     return render_template('segment.html',
         start=start, end=end, inputs=inputs)
 
@@ -260,47 +325,70 @@ def segment_stream():
     prompt = build_user_prompt(inputs)
     def generate():
         yield 'retry: 300\n\n'
-        for chunk in call_llm_stream(prompt):
-            text = chunk.replace("\n", "").replace("\r", "")
-            yield f"data: {text}\n\n"
-            time.sleep(0.05)
+        try:
+            for chunk in call_llm_stream(prompt):
+                text = chunk.replace("\n", "").replace("\r", "")
+                if not text:
+                    continue
+                yield f"data: {text}\n\n"
+                time.sleep(0.05)
+        except Exception as e:
+            print("❌ Error in segment_stream:", e)
+            yield f"event: error\ndata: {e}\n\n"
         yield "event: done\ndata: [DONE]\n\n"
 
-    return Response(stream_with_context(generate()), mimetype="text/event-stream; charset=utf-8")
+    # mimetype 不該帶參數，charset 要放在 content_type 才不會重複附加
+    return Response(stream_with_context(generate()),
+                    content_type="text/event-stream; charset=utf-8")
 
 @app.route("/route")
 def route_page():
-    start = request.form.get('start')
-    end = request.form.get('end')
+    # 這是 GET-only 的路由，request.form 永遠是空的，要讀 query string
+    start = request.args.get('start', '')
+    end = request.args.get('end', '')
     distance = request.args.get("distance")
     return render_template("route.html", start=start, end=end, distance=distance)
 DATA_DIR = "user_data"
 os.makedirs(DATA_DIR, exist_ok=True)
 
+# 只允許英數、底線與連字號的檔名（實際格式為 2025-07-28-20-30-00），
+# 避免 "../../app" 這類輸入寫到 user_data 以外的位置。
+SAFE_FILENAME_RE = re.compile(r'^[A-Za-z0-9_-]{1,64}$')
+
+
+def safe_data_path(name):
+    """把使用者提供的檔名限制在 DATA_DIR 底下，不合法時回傳 None。"""
+    if not isinstance(name, str) or not SAFE_FILENAME_RE.match(name):
+        return None
+    return os.path.join(DATA_DIR, f"{name}.json")
+
+
 @app.route('/save_ride', methods=['POST'])
 def save_ride():
-    content = request.json
-    if not content or "filename" not in content or "data" not in content:
+    content = request.get_json(silent=True)
+    if not isinstance(content, dict) or "filename" not in content or "data" not in content:
         return jsonify({"status": "error", "message": "Invalid input"}), 400
 
-    filename = content.get("filename") + ".json"
+    filepath = safe_data_path(content.get("filename"))
+    if filepath is None:
+        return jsonify({"status": "error", "message": "Invalid filename"}), 400
+
     data = content.get("data")
 
-    with open(os.path.join(DATA_DIR, filename), 'w') as f:
-        json.dump(data, f)
+    with open(filepath, 'w', encoding='utf-8') as f:
+        json.dump(data, f, ensure_ascii=False)
 
-    return jsonify({"status": "success", "file": filename})
+    return jsonify({"status": "success", "file": os.path.basename(filepath)})
 
 @app.route('/get_stats', methods=['GET'])
 def get_stats():
     # 計算統計
-    data_dir = 'user_data'
     stats = defaultdict(lambda: {'distance': 0, 'duration': 0})
 
-    for filename in os.listdir(data_dir):
+    for filename in os.listdir(DATA_DIR):
         if not filename.endswith('.json'):
             continue
-        filepath = os.path.join(data_dir, filename)
+        filepath = os.path.join(DATA_DIR, filename)
         try:
             with open(filepath, 'r', encoding='utf-8') as f:
                 ride = json.load(f)
@@ -407,15 +495,21 @@ def get_stats():
 
 @app.route('/user_data', methods=['POST'])
 def update_user_data():
-    updates = request.json.get("updates", [])
+    payload = request.get_json(silent=True)
+    if not isinstance(payload, dict):
+        return jsonify({"status": "error", "message": "Invalid JSON body"}), 400
+
+    updates = payload.get("updates", [])
     for upd in updates:
-        date = upd.get("date")
-        plan = upd.get("plan")
-        if not date or plan is None:
+        if not isinstance(upd, dict):
             continue
-        filename = f"{date}.json"
-        filepath = os.path.join(DATA_DIR, filename)
-        if not os.path.exists(filepath):
+        # 注意：這裡不要用 `date` 當變數名，會遮蔽 datetime.date
+        ride_date = upd.get("date")
+        plan = upd.get("plan")
+        if not ride_date or plan is None:
+            continue
+        filepath = safe_data_path(ride_date)
+        if filepath is None or not os.path.exists(filepath):
             continue
         with open(filepath, "r", encoding="utf-8") as f:
             data = json.load(f)
@@ -427,8 +521,12 @@ def update_user_data():
 @app.route('/set_language', methods=['GET', 'POST'])
 def set_language():
     """設置用戶界面語言"""
+    # 前端 i18n.js 送的是 'zh'／'en'，但後端翻譯檔是 zh-TW.json，
+    # 統一在這裡正規化，避免 <html lang> 與 translate() 用到無效的語言碼。
+    supported = {'zh': 'zh-TW', 'zh-TW': 'zh-TW', 'en': 'en'}
+
     if request.method == 'POST':
-        language = request.form.get('language', 'zh-TW')
+        language = supported.get(request.form.get('language', 'zh-TW'), 'zh-TW')
         session['language'] = language
         # 如果有 referer，則返回之前的頁面
         referer = request.headers.get('Referer')
@@ -455,37 +553,48 @@ def inject_i18n_functions():
 
 @app.route('/chat_stream', methods=['POST'])
 def chat_stream():
-    data = request.get_json()
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return jsonify({"error": "Invalid JSON body"}), 400
+
     messages = data.get("messages", [])
+    llm = get_llm()
 
     def generate():
         for chunk in llm.create_chat_completion(
             messages=messages,
             stream=True
         ):
-            content = chunk["choices"][0]["delta"].get("content", "")
-            yield content
+            # 串流的第一個 chunk 只有 role，沒有 content
+            content = chunk["choices"][0].get("delta", {}).get("content", "")
+            if content:
+                yield content
 
-    return Response(generate(), content_type='text/plain')
+    return Response(generate(), content_type='text/plain; charset=utf-8')
 
 
 # 從 segment_paths.py 載入 segment_svg_paths 字典
 from utils.segment_paths import segment_svg_paths
 @app.route("/api/pacing", methods=["POST"])
 def pacing_strategy():
-    data = request.get_json()
-    if not data or "segmentID" not in data:
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict) or "segmentID" not in data:
         return jsonify({"error": "Missing 'segmentID' in JSON"}), 400
 
     segment_id = data["segmentID"]
-    path_html = segment_svg_paths[segment_id]
+    # 原本用 segment_svg_paths[segment_id]，未知的 ID 會先丟 KeyError 變成 500，
+    # 根本走不到下面的 404 分支
+    path_html = segment_svg_paths.get(segment_id)
 
     if not path_html:
         return jsonify({"error": f"Segment ID '{segment_id}' not found"}), 404
 
-    x_axis, gradients = parse_svg_path(path_html)
-
-    best_plan, img_buf = generate_pacing_strategy(x_axis, gradients)
+    try:
+        x_axis, gradients = parse_svg_path(path_html)
+        best_plan, img_buf = generate_pacing_strategy(x_axis, gradients)
+    except Exception as e:
+        print("❌ Error in pacing_strategy:", e)
+        return jsonify({"error": str(e)}), 400
 
     return send_file(img_buf, mimetype='image/png')
 
@@ -519,15 +628,9 @@ def rainbow_animation(ascii_art, stop_flag, start_line=1):
 
 # ====== 主程式入口 ======
 if __name__ == '__main__':
-    
+
     # 載入 GGUF 模型（確保已下載並配置好）
-    llm = Llama(
-        model_path="./model/gemma-3-4b-it-Q4_K_M.gguf",
-        n_gpu_layers=0,
-        n_threads=16,
-        n_ctx=2048,
-        verbose=True
-    )
+    get_llm()
 
     # 3. 啟動動畫執行緒（從第 8 行開始畫動畫，避免蓋到標題）
     stop_flag = {'stop': False}

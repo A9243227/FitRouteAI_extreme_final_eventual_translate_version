@@ -1,5 +1,8 @@
 import os
 
+# 用絕對路徑，避免啟動時工作目錄不同就讀不到 paths/*.txt
+_PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
 segment_ids = [
     "7047153", "1761462", "3907879", "641218", "802344",
     "2965631", "5782274", "4928093", "13202808", "4916176"
@@ -8,7 +11,7 @@ segment_ids = [
 segment_svg_paths = {}
 
 for seg_id in segment_ids:
-    file_path = os.path.join("paths", f"{seg_id}.txt")  # 讀取 paths/7047153.txt
+    file_path = os.path.join(_PROJECT_ROOT, "paths", f"{seg_id}.txt")  # 讀取 paths/7047153.txt
     try:
         with open(file_path, "r", encoding="utf-8") as f:
             svg_path_data = f.read().strip()

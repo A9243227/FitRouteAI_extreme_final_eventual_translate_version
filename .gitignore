@@ -1,0 +1,22 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# --- 環境變數 / 金鑰（絕對不要進版控）---
+key.env
+*.env
+!*.env.example
+
+# --- 資料庫與使用者資料 ---
+instance/
+*.db
+
+# --- 模型權重（2GB，請依 README 另行下載）---
+model/*.gguf
+
+# --- 編輯器 ---
+.vscode/
+.idea/
+.DS_Store

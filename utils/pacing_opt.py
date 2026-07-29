@@ -1,19 +1,15 @@
 import numpy as np
 import random
-import pandas as pd
-import joblib
 from io import BytesIO
 import matplotlib
 matplotlib.use('Agg')  # 設為非 GUI backend，再 import pyplot
 import matplotlib.pyplot as plt
 import re
 
-# === 你的 path_html 原始 SVG path 資料，請貼完整 ===
-target_distance_m = 6130
+# 與 utils/simulation.py 共用同一個已載入的 XGBoost 模型，
+# 避免同一個 model/xgb_model.pkl 被 joblib.load 兩次、佔用雙倍記憶體
+from utils.simulation import simulate_ride
 
-path_html = """
-<path class="fill" d="M0,110.909090909090...957370132,200,1.1948448624417685,200S0.7663487738419618,200,0.5273798013536081,200Q0.36806715302803894,200,0,200Z"></path>
-"""
 
 def resample_points_equal_distance(points, num_samples=1000):
     # points: list of (x,y) tuples
@@ -59,6 +55,8 @@ def parse_svg_path(path_html, num_samples=800, points_per_segment=15, rounding_d
     # 擷取所有數字，組成點列
     numbers = list(map(float, re.findall(r"[-+]?\d*\.\d+|\d+", d_str)))
     points = [(numbers[i], numbers[i+1]) for i in range(0, len(numbers)-1, 2)]
+    if len(points) < 2:
+        raise ValueError("SVG path 至少需要兩個座標點")
 
     # 等距重取樣
     sampled_points = resample_points_equal_distance(points, num_samples=num_samples)
@@ -89,31 +87,12 @@ def parse_svg_path(path_html, num_samples=800, points_per_segment=15, rounding_d
     distances = [d for g, d in route]
     x_axis = np.cumsum(distances).tolist()
 
+    if len(x_axis) < 4:
+        # 下面畫圖用的三次樣條插值至少需要 4 個點
+        raise ValueError("路段資料太短，無法產生配速策略")
+
     return x_axis, gradients
 
-
-
-
-# 載入 XGBoost 模型
-xgb_model = joblib.load("model/xgb_model.pkl")
-
-# 模型預測時間函數
-def simulate_ride(weight_kg, avg_power_w, w_per_kg,
-                  distance_m, avg_grade, difficulty, season='Spring'):
-    input_df = pd.DataFrame([{
-        'estimated_weight_kg': weight_kg,
-        'avg_power_w': avg_power_w,
-        'w_per_kg': w_per_kg,
-        'segment_distance_m': distance_m,
-        'segment_avg_grade': avg_grade,
-        'segment_difficulty': difficulty,
-        'season_Fall': 1 if season == 'Fall' else 0,
-        'season_Spring': 1 if season == 'Spring' else 0,
-        'season_Summer': 1 if season == 'Summer' else 0,
-        'season_Winter': 1 if season == 'Winter' else 0,
-    }])
-    pred_time_sec = float(xgb_model.predict(input_df)[0])
-    return pred_time_sec
 
 def model_predict_time(power, gradient, distance):
     weight_kg = 70
@@ -204,7 +183,6 @@ def simulate_with_power_limit(state, route, model_predict, power_limits, smooth_
             return 1e9, power_duration
     #total_time += smooth_weight * smoothness_penalty(state)  # 平滑懲罰加權
     return total_time, power_duration
-    return total_time, power_duration
 
 
 
@@ -234,6 +212,10 @@ def mcts(route, power_options, power_limits, max_iter=1000):
 
 # 繪圖函數（回傳 BytesIO）
 def plot_pacing_strategy(pacing, x_axis):
+    # 兩者長度必須一致，否則 make_interp_spline 會丟 ValueError
+    n = min(len(pacing), len(x_axis))
+    pacing, x_axis = list(pacing[:n]), list(x_axis[:n])
+
     tick_interval = max(len(x_axis) // 10, 1)
     tick_indices = list(range(0, len(x_axis), tick_interval))
     tick_labels = [f"{x_axis[i]:.0f}" for i in tick_indices]
@@ -247,9 +229,8 @@ def plot_pacing_strategy(pacing, x_axis):
 
     # ✅ 動態計算範圍但排除 0 與 800
     filtered = [p for p in pacing if p != 0 and p != 800]
-    y_min = min(filtered)
-    y_max = max(filtered)
-    ax.set_ylim(y_min - 20, y_max + 20)
+    if filtered:  # 全被過濾掉時 min()/max() 會丟 ValueError
+        ax.set_ylim(min(filtered) - 20, max(filtered) + 20)
 
     ax.set_title("Pacing Optimizer (Power vs. Distance)")
     ax.set_xlabel("Distance (m)")
@@ -262,25 +243,8 @@ def plot_pacing_strategy(pacing, x_axis):
 
     img_buf = BytesIO()
     fig.savefig(img_buf, format='png')
-    plt.close(fig)
-    img_buf.seek(0)
-    return img_buf
-    ax.set_title("Pacing Optimizer (Power vs. Distance)")
-    ax.set_xlabel("Distance (m)")
-    ax.set_xlim(0, 1000)
-    ax.set_ylabel("Power (W)")
-    ax.set_xticks([x_axis[i] for i in tick_indices])
-    ax.set_xticklabels(tick_labels)
-    ax.grid(True)
-    fig.tight_layout()
-
-    img_buf = BytesIO()
-    fig.savefig(img_buf, format='png')
     plt.close(fig)  # ✅ 關閉該 figure，避免疊圖
     img_buf.seek(0)
-    #print('abc',x_axis)
-
-
     return img_buf
 
 

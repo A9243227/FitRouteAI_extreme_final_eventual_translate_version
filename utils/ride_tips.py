@@ -1,5 +1,12 @@
+import codecs
+import os
+
 from flask import request, session
 import requests
+
+# /chat_stream 的位置。原本寫死 localhost:5000，換 port 就會壞掉，
+# 改成可用環境變數覆蓋。
+CHAT_STREAM_URL = os.getenv("CHAT_STREAM_URL", "http://localhost:5000/chat_stream")
 
 def safe_float(value, default=50.0) -> float:
     try:
@@ -28,7 +35,6 @@ def build_user_prompt(inputs: dict) -> str:
 
 
 def call_llm_stream(prompt: str):
-    url = "http://localhost:5000/chat_stream"
     headers = {"Content-Type": "application/json"}
     payload = {
         "messages": [
@@ -37,11 +43,22 @@ def call_llm_stream(prompt: str):
         ]
     }
 
-    with requests.post(url, headers=headers, json=payload, stream=True) as response:
-        for line in response.iter_lines(decode_unicode=False):
-            line = line.decode('utf-8')
-            if line:
-                yield line
+    # 用 iter_content 而不是 iter_lines：模型輸出通常沒有換行，
+    # iter_lines 會一路緩衝到整段講完才吐出來，等於沒有串流效果。
+    # incremental decoder 則負責處理被切在 chunk 邊界的多位元組 UTF-8 字元。
+    decoder = codecs.getincrementaldecoder('utf-8')(errors='replace')
+    with requests.post(CHAT_STREAM_URL, headers=headers, json=payload,
+                       stream=True, timeout=(10, 300)) as response:
+        response.raise_for_status()
+        for raw in response.iter_content(chunk_size=None):
+            if not raw:
+                continue
+            text = decoder.decode(raw)
+            if text:
+                yield text
+        tail = decoder.decode(b'', final=True)
+        if tail:
+            yield tail
 
 
 

@@ -14,8 +14,8 @@
     <div id="map" style="height: 500px"> <!-- Google Map 將會渲染在此 --></div>
   </div>
   <!-- 隱藏 input 提供 JS 取用 -->
-  <input type="hidden" id="start-input" value="{{ start }}">
-  <input type="hidden" id="end-input" value="{{ end }}">
+  <input type="hidden" id="start-input" value="{{ start or '' }}">
+  <input type="hidden" id="end-input" value="{{ end or '' }}">
 
   <div id="result-panel">
     <h3 data-i18n="road_section_info">🚴 Road section information</h3>
@@ -119,6 +119,7 @@
 <script>
   function startTipStreaming() {
     const tipEl = document.getElementById("tip-streaming");
+    if (!tipEl) return;
     tipEl.innerHTML = "";
 
     const eventSource = new EventSource("/segment_stream");
@@ -129,8 +130,16 @@
         .replace(/\*/g, "");                    // 移除單個 *
 
       tipEl.innerHTML += content;
-      scrollToBottom?.();
+      // 這頁沒有 scrollToBottom，原本的 scrollToBottom?.() 每收到一段就會
+      // 丟一次 ReferenceError（?. 擋不住「變數未宣告」）
+      if (typeof scrollToBottom === "function") scrollToBottom();
     };
+
+    // 後端串完會送 event: done，收到就主動關閉，否則 EventSource 會依 retry
+    // 重連並讓模型從頭再產生一次
+    eventSource.addEventListener("done", function () {
+      eventSource.close();
+    });
 
     eventSource.onerror = function () {
       eventSource.close();

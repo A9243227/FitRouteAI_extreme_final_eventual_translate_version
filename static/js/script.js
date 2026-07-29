@@ -100,9 +100,10 @@ function renderHome() {
       </div>
 
        <!-- START 按鈕 -->
-  <div class="start-button-wrapper">
-    <div class="activity-card activity-start" onclick="location.href='/mood'">
-      <img src="/static/images/start-icon.png" alt="Start" />
+      <div class="start-button-wrapper">
+        <div class="activity-card activity-start" onclick="location.href='/mood'">
+          <img src="/static/images/start-icon.png" alt="Start" />
+        </div>
       </div>
     </div>
   `;
@@ -197,8 +198,10 @@ function renderWeekResult() {
   console.log("targetHoursInput:", targetHoursInput);
   console.log("checkboxes checked count:", checkboxes.length);
 
-  if (!dateInput.value || !targetHoursInput || checkboxes.length === 0) {
-    alert("請完整填寫比賽日期與訓練日");
+  // 原本寫的是 !targetHoursInput（永遠為 false，等於沒檢查到目標時數）
+  if (!dateInput || !targetHoursInput ||
+      !dateInput.value || !targetHoursInput.value || checkboxes.length === 0) {
+    alert("請完整填寫比賽日期、目標時數與訓練日");
     return;
   }
 
@@ -252,8 +255,15 @@ function renderWeekResult() {
         </div>`;
       }
 
-      html += `</ul>`;
+      html += `</div>`;  // 對應上面的 <div class="week-plan-grid">，原本誤寫成 </ul>
       resultContainer.innerHTML = html;
+    })
+    .catch(error => {
+      console.error('取得訓練計畫失敗：', error);
+      const resultContainer = document.getElementById("plan-result");
+      if (resultContainer) {
+        resultContainer.innerHTML = `<div class="error">無法取得訓練計畫，請稍後再試。</div>`;
+      }
     });
 }
 function renderPacing() {
@@ -432,11 +442,13 @@ function renderCustom() {
 
           <div class="custom-field full-width">
             <label for="season">🌤️ ${localTranslate('season')}</label>
-            <select id="season" required>
-              <option>${localTranslate('spring')}</option>
-              <option>${localTranslate('summer')}</option>
-              <option>${localTranslate('fall')}</option>
-              <option>${localTranslate('winter')}</option>
+            <!-- 原本沒有 name，FormData 收不到 season；也沒有 value，
+                 中文介面下會把「春季」送到後端而不是 "Spring" -->
+            <select id="season" name="season" required>
+              <option value="Spring">${localTranslate('spring')}</option>
+              <option value="Summer">${localTranslate('summer')}</option>
+              <option value="Fall">${localTranslate('fall')}</option>
+              <option value="Winter">${localTranslate('winter')}</option>
             </select>
           </div>
         </div>
@@ -1095,11 +1107,8 @@ function renderProfile() {
       <h3>${localTranslate('account_settings')}</h3>
     </div>
 
-    
-  <button class="link-card">${localTranslate('app_settings')} ➔</button>
-  </div>
-</div>
 
+    <button class="link-card">${localTranslate('app_settings')} ➔</button>
   `;
 
   // 函式掛到全域
@@ -1179,7 +1188,16 @@ function renderProfile() {
       alert("語音辨識錯誤：" + event.error);
     };
   } else {
-    alert("此瀏覽器不支援語音辨識（建議用 Chrome）");
+    // 原本這裡直接 alert，每次切到 Profile 分頁都會跳一次；
+    // 而且沒有定義 startListening/stopListening，按下按鈕會 ReferenceError。
+    window.startListening = function () {};
+    window.stopListening = function () {};
+    const voiceBtn = document.getElementById("voice-btn");
+    if (voiceBtn) {
+      voiceBtn.disabled = true;
+      voiceBtn.title = "此瀏覽器不支援語音辨識（建議使用 Chrome）";
+    }
+    console.warn("此瀏覽器不支援語音辨識（建議用 Chrome）");
   }
 
 

@@ -87,8 +87,8 @@
         const { value, done: doneReading } = await reader.read();
         done = doneReading;
         if (value) {
-          const chunk = decoder.decode(value);
-          assistantText += chunk;
+          // stream: true 才不會把跨 chunk 的中文字解碼成亂碼
+          assistantText += decoder.decode(value, { stream: true });
 
           let safeText = assistantText
             .replace(/&/g, "&amp;")

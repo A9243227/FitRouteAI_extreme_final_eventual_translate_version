@@ -2,8 +2,8 @@ import os
 import requests
 from flask import Blueprint, request, jsonify
 
-# 載入 API 金鑰（建議從環境變數或 config 讀取）
-GOOGLE_MAPS_API_KEY = os.getenv('GOOGLE_MAPS_API_KEY', 'AIzaSyBkChog68-PM96LHebsFoRx3kybDwocur4')
+# 載入 API 金鑰（請放在 key.env 的 GOOGLE_MAPS_API_KEY）
+GOOGLE_MAPS_API_KEY = os.getenv('GOOGLE_MAPS_API_KEY', '')
 
 google_proxy = Blueprint('google_proxy', __name__)
 
@@ -19,11 +19,16 @@ def get_elevation():
     except (TypeError, ValueError):
         return jsonify({"error": "Invalid lat or lng parameter"}), 400
 
-    api_key = GOOGLE_MAPS_API_KEY  # 使用環境變數中的 Google API 金鑰
-    url = f"https://maps.googleapis.com/maps/api/elevation/json?locations={lat},{lng}&key={'AIzaSyBpaGk99xhHsaCL2QRI2y2Mx786brPJUTg'}"
+    # 原本這行把金鑰直接寫死在 f-string 裡，讓上面的 api_key（環境變數）完全沒作用
+    api_key = GOOGLE_MAPS_API_KEY
+    if not api_key:
+        return jsonify({"error": "GOOGLE_MAPS_API_KEY is not configured"}), 500
+
+    url = ("https://maps.googleapis.com/maps/api/elevation/json"
+           f"?locations={lat},{lng}&key={api_key}")
 
     try:
-        response = requests.get(url)
+        response = requests.get(url, timeout=10)
         response.raise_for_status()
         return jsonify(response.json())
     except requests.RequestException as e:

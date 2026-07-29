@@ -42,7 +42,10 @@ function initializeUI() {
 function updateStaticTexts() {
   // 這裡可以更新一些不是通過 data-i18n 屬性設置的文本
   // 例如動態生成的內容或警告訊息
-  document.getElementById('toggleBtn').textContent = isTracking ? translate('stop') : translate('start');
+  const toggleBtn = document.getElementById('toggleBtn');
+  if (toggleBtn) {
+    toggleBtn.textContent = isTracking ? translate('stop') : translate('start');
+  }
 }
 
 window.initMap = function () {
@@ -157,8 +160,8 @@ function startTracking() {
       const totalElapsed = elapsedSeconds + currentDuration;
 
       document.getElementById("elapsedTime").textContent = totalElapsed;
-      const avg = totalDistance / totalElapsed;
-      averageSpeed = avg * 3.6;
+      // totalElapsed 為 0 時會得到 Infinity / NaN
+      averageSpeed = totalElapsed > 0 ? (totalDistance / totalElapsed) * 3.6 : 0;
       document.getElementById("avgSpeed").textContent = averageSpeed.toFixed(1);
     }, 1000);
     isTimerRunning = true;
@@ -271,6 +274,9 @@ function endSession() {
   }).then(res => {
     console.log('saved:', res);
     location.href = '/';
+  }).catch(err => {
+    console.error('儲存訓練紀錄失敗:', err);
+    alert(translate('save_failed'));
   });
 }
 
